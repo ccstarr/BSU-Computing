@@ -1,0 +1,92 @@
+#!/bin/bash
+#!
+#! Example SLURM job script for BSU Internal Cluster
+#!
+
+#!#######################################
+#!#### SLURM CONFIGURATION OPTIONS ######
+#!#######################################
+
+## For the complete documentation on SBATCH options, see
+## https://slurm.schedmd.com/sbatch.html
+## All the options described there can be included in an #SBATCH command
+
+#! Name of the job: change this to anything you like
+#SBATCH -J mrcbsusandjob
+#! How many cores do you need in total?
+#SBATCH --ntasks=1
+#! How much wallclock time will be required? Use format DD-HH:MM:SS
+#SBATCH --time=01:00:00
+
+#! How much memory in MB you require. (This is only necessary if it is
+#! greater than 16GB per core)
+###SBATCH --mem=16120
+#! How big do you want your array of tasks, and how many to run at a time
+###SBATCH --array=1-4%2
+
+#! What types of email messages do you wish to receive?
+#! Other valid types include ALL, BEGIN, END; see documentation for full list
+#SBATCH --mail-type=FAIL
+#! How many whole nodes should be allocated? (You can ask for 
+#! more than one ONLY if the cluster is empty)
+#SBATCH --nodes=1
+
+#! sbatch directives end here (put any additional directives above this line)
+
+#!################################
+#!#### LOAD REQUIRED MODULES #####
+#!################################
+
+## To avoid problems, only the default modules are loaded when you submit a job.
+## Any other modules you require must be (re-)loaded here.
+. /etc/profile.d/modules.sh                # Leave this line (enables the module command)
+module purge                               # Removes all modules still loaded
+module load default-purcell                # REQUIRED - loads the basic environment
+
+
+#!#########################
+#!#### COMMAND TO RUN #####
+#!#########################
+
+CMD="myApplication opt1 opt2"
+
+## Other example commands:
+
+#CMD="Rscript myScript.R"
+
+## (Note that -n should be 1 regardless of number of cores; SLURM passes the right options)
+#CMD="mpirun -n 1 myParallelApplication"
+
+
+#!################################################################
+#!#### You should not have to change anything below this line ####
+#!################################################################
+
+#! Number of nodes and tasks per node allocated by SLURM (do not change):
+numnodes=$SLURM_JOB_NUM_NODES
+numtasks=$SLURM_NTASKS
+mpi_tasks_per_node=$(echo "$SLURM_TASKS_PER_NODE" | sed -e  's/^\([0-9][0-9]*\).*$/\1/')
+
+#! Work directory (i.e. where the job will run):
+workdir="$SLURM_SUBMIT_DIR"  # The value of SLURM_SUBMIT_DIR sets workdir to the directory
+                             # in which sbatch is run.
+
+#! Number of MPI tasks to be started by the application per node and in total (do not change):
+np=$[${numnodes}*${mpi_tasks_per_node}]
+
+
+cd $workdir
+echo -e "Changed directory to `pwd`.\n"
+
+JOBID=$SLURM_JOB_ID
+
+echo -e "JobID: $JOBID\n======"
+echo "Time: `date`"
+echo "Running on master node: `hostname`"
+echo "Current directory: `pwd`"
+
+echo -e "\nnumtasks=$numtasks, numnodes=$numnodes, mpi_tasks_per_node=$mpi_tasks_per_node (OMP_NUM_THREADS=$OMP_NUM_THREADS)"
+
+echo -e "\nExecuting command:\n==================\n$CMD\n"
+
+eval $CMD
